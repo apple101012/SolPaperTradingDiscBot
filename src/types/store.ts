@@ -1,0 +1,3 @@
+// Types: store (placeholder)
+
+export {};

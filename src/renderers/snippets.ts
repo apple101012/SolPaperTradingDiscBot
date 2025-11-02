@@ -1,0 +1,3 @@
+// Renderer: snippets (placeholder)
+
+export {};

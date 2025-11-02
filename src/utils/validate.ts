@@ -1,0 +1,3 @@
+// Utility: validate (placeholder)
+
+export {};

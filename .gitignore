@@ -1,0 +1,10 @@
+# Environment files
+.env
+
+# Node modules & build output
+node_modules/
+dist/
+
+# OS / editor clutter
+.DS_Store
+*.log

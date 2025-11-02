@@ -1,0 +1,262 @@
+---
+
+## applyTo: '**'
+
+User instruction (keep this at the top):
+
+The file `changelog.txt` is a persistent project log and living documentation. Always update this file whenever you (the assistant) make changes to the project codebase, database schema, routes, or architecture. Include a short summary of what changed, why, files edited, and any steps needed to verify the change. Keep entries chronological with timestamps. Always keep this header at the top.
+
+---
+
+Project snapshot (initial seed) — 2025-11-02
+
+Summary
+
+* Repo root: **sola-dm-papertrader-bot**
+* Purpose: Discord DM-only bot for paper-trading Solana tokens using real-time market data and simulated SOL balances.
+  Users can paste a token mint, view live market cap, and use buttons to buy/sell in preset amounts.
+* Stack: Node.js + TypeScript + discord.js + SQLite
+* Architecture: modular — commands, interactions, renderers, market services, trading engine, persistence, and utilities.
+
+---
+
+Directory structure (initial layout)
+
+```
+sola-dm-papertrader-bot/
+├─ .env.example
+├─ package.json
+├─ tsconfig.json
+├─ README.md
+├─ src/
+│  ├─ index.ts
+│  ├─ config/env.ts
+│  ├─ bot/
+│  │  ├─ client.ts
+│  │  ├─ registry.ts
+│  │  └─ intents.ts
+│  ├─ commands/
+│  │  ├─ start.ts
+│  │  ├─ balance.ts
+│  │  ├─ positions.ts
+│  │  ├─ history.ts
+│  │  ├─ pnl.ts
+│  │  ├─ set-buypresets.ts
+│  │  ├─ set-sellpresets.ts
+│  │  ├─ set-slippage.ts
+│  │  ├─ set-balance.ts
+│  │  └─ reset.ts
+│  ├─ interactions/
+│  │  ├─ buttons/
+│  │  │  ├─ buy.ts
+│  │  │  ├─ sell.ts
+│  │  │  ├─ switch-token.ts
+│  │  │  ├─ open-buypresets-modal.ts
+│  │  │  ├─ open-sellpresets-modal.ts
+│  │  │  ├─ open-slippage-modal.ts
+│  │  │  └─ help.ts
+│  │  └─ modals/
+│  │     ├─ buypresets.ts
+│  │     ├─ sellpresets.ts
+│  │     └─ slippage.ts
+│  ├─ renderers/
+│  │  ├─ panel.ts
+│  │  ├─ errors.ts
+│  │  └─ snippets.ts
+│  ├─ services/
+│  │  ├─ market/
+│  │  │  ├─ index.ts
+│  │  │  ├─ sources/
+│  │  │  │  ├─ dexScreener.ts
+│  │  │  │  ├─ birdeye.ts
+│  │  │  │  └─ jupiter.ts
+│  │  │  └─ cache.ts
+│  │  └─ trading/
+│  │     ├─ engine.ts
+│  │     └─ math.ts
+│  ├─ store/
+│  │  ├─ db.ts
+│  │  ├─ schema.sql
+│  │  ├─ users.ts
+│  │  ├─ positions.ts
+│  │  ├─ trades.ts
+│  │  └─ settings.ts
+│  ├─ models/
+│  │  ├─ User.ts
+│  │  ├─ Settings.ts
+│  │  ├─ Position.ts
+│  │  └─ Trade.ts
+│  ├─ utils/
+│  │  ├─ ids.ts
+│  │  ├─ time.ts
+│  │  ├─ numbers.ts
+│  │  └─ validate.ts
+│  └─ types/
+│     ├─ discord.ts
+│     ├─ market.ts
+│     ├─ trading.ts
+│     └─ store.ts
+└─ tests/
+   ├─ e2e-plan.md
+   └─ sample-session.md
+```
+
+---
+
+Database schema (initial draft)
+
+* **users**
+
+  * discord_user_id (PK)
+  * sol_balance (REAL)
+  * realized_pnl (REAL)
+  * active_panel_message_id (TEXT)
+  * active_mint (TEXT)
+  * created_at, updated_at (INT)
+
+* **settings**
+
+  * discord_user_id (PK)
+  * buy_presets_sol (TEXT, JSON array)
+  * sell_presets_pct (TEXT, JSON array)
+  * slippage_bp (INT)
+  * fee_bp (INT)
+  * price_source (TEXT)
+
+* **positions**
+
+  * discord_user_id + mint (PK)
+  * token_qty (REAL)
+  * avg_entry (REAL)
+  * last_mark_ts (INT)
+
+* **trades**
+
+  * id (PK)
+  * discord_user_id
+  * mint
+  * side (‘BUY’|‘SELL’)
+  * quote_price, effective_price, qty_tokens, amount_sol
+  * realized_pnl (REAL)
+  * ts (INT)
+
+---
+
+Commands (DM-only)
+
+* `/start` — initialize user and create/update main trading panel.
+* `/balance` — show SOL balance + portfolio value.
+* `/positions` — list open positions with PnL.
+* `/history` — show recent trades.
+* `/pnl` — show realized PnL summary.
+* `/set-buypresets` — define four SOL buy sizes.
+* `/set-sellpresets` — define four sell percentages.
+* `/set-slippage` — set slippage/fee basis points.
+* `/set-balance` — dev/admin only.
+* `/reset` — clear portfolio and reset balance.
+
+---
+
+Interaction IDs (for buttons/modals)
+
+* Buttons:
+
+  * `BUY::<mint>::<sol>`
+  * `SELL::<mint>::<percent>`
+  * `OPEN_BUY_PRESETS`
+  * `OPEN_SELL_PRESETS`
+  * `OPEN_SLIPPAGE`
+  * `SWITCH_TOKEN::<mint?>`
+  * `HELP`
+* Modals:
+
+  * `MODAL_BUY_PRESETS`
+  * `MODAL_SELL_PRESETS`
+  * `MODAL_SLIPPAGE`
+
+---
+
+Market data sources (planned)
+
+* **DexScreener API** — primary (public, no key).
+* **Birdeye API** — fallback (requires API key).
+* **Jupiter API** — optional fallback for quotes.
+
+Caching
+
+* TTL = 3–5 seconds; LRU cache keyed by mint+source.
+
+---
+
+Trading logic (paper)
+
+* Starting balance: 10 SOL.
+* Buy = reduce SOL, add tokens at VWAP.
+* Sell = release tokens, add SOL, compute realized PnL.
+* Fees and slippage applied in basis points (configurable).
+* Rounding: SOL 3–5 dp, tokens 6–9 dp.
+
+---
+
+Renderer
+
+* Single persistent “panel” embed in user DM.
+* Updates dynamically on trade actions.
+* Rows:
+
+  1. **Buy Preset Buttons**
+  2. **Sell Percent Buttons** (only if holding)
+  3. **Config Row** — change presets, slippage, switch token, help.
+* Panel includes token info (name, symbol, MC, liquidity) and PnL snapshot.
+
+---
+
+Next steps
+
+* Implement Discord client setup and slash command registration.
+* Implement `/start` command + persistent panel creation.
+* Connect market data API wrappers with caching.
+* Build paper trading engine and SQLite persistence.
+* Verify DM-only permission settings in Discord Developer Portal.
+
+---
+
+Change log (append-only)
+
+* **2025-11-02** — Created initial structure and documentation outline.
+  No executable code yet. Defines all directories, command set, interaction IDs, data models, and future implementation plan.
+ 
+* **2025-11-02  (assistant)** — Added project file scaffold to match the draft.
+  Created empty placeholder files and directories so the repository contains the expected structure before implementation.
+
+  Files added (stubs/placeholders):
+  - .env.example
+  - package.json
+  - tsconfig.json
+  - README.md
+  - src/index.ts
+  - src/config/env.ts
+  - src/bot/client.ts
+  - src/bot/registry.ts
+  - src/bot/intents.ts
+  - src/commands/*.ts (start, balance, positions, history, pnl, set-buypresets, set-sellpresets, set-slippage, set-balance, reset)
+  - src/interactions/buttons/*.ts (buy, sell, switch-token, open-buypresets-modal, open-sellpresets-modal, open-slippage-modal, help)
+  - src/interactions/modals/*.ts (buypresets, sellpresets, slippage)
+  - src/renderers/*.ts (panel, errors, snippets)
+  - src/services/market/index.ts
+  - src/services/market/sources/*.ts (dexScreener, birdeye, jupiter)
+  - src/services/market/cache.ts
+  - src/services/trading/*.ts (engine, math)
+  - src/store/* (db.ts, schema.sql, users.ts, positions.ts, trades.ts, settings.ts)
+  - src/models/* (User.ts, Settings.ts, Position.ts, Trade.ts)
+  - src/utils/* (ids.ts, time.ts, numbers.ts, validate.ts)
+  - src/types/* (discord.ts, market.ts, trading.ts, store.ts)
+  - tests/e2e-plan.md
+  - tests/sample-session.md
+
+  Why: prepare the project for incremental implementation. Having the full file scaffold avoids merge conflicts and makes it easier to implement features file-by-file.
+
+  How to verify:
+  1. Inspect the repository tree (e.g., `ls -R` or your editor) and confirm the listed files exist.
+  2. Open a few files (e.g., `src/index.ts`, `src/commands/start.ts`, `src/store/schema.sql`) to verify placeholders are present.
+

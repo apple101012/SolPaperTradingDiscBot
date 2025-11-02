@@ -1,0 +1,3 @@
+// Renderer: panel (placeholder)
+
+export {};

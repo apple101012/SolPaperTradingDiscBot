@@ -1,0 +1,3 @@
+// Renderer: errors (placeholder)
+
+export {};

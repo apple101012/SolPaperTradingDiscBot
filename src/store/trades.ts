@@ -1,0 +1,3 @@
+// Trades store (placeholder)
+
+export {};
