@@ -359,3 +359,17 @@ Change log (append-only)
   - Currently the project uses the MVP simplification (1 SOL = $1). The USD/SOL conversion can be wired in later by fetching SOL/USD.
   - The CSV templates will continue to work; newly written CSVs will include the added columns. Existing CSVs without the new headers will be read safely (defaults applied).
 
+* **2025-11-02 (assistant) — Ignore runtime CSVs in .gitignore**
+  What changed:
+  - Updated `.gitignore` to exclude personal runtime CSV files so users' local data (src/store/users.csv, src/store/positions.csv, src/store/trades.csv) are not accidentally committed.
+
+  Why:
+  - Templates remain committed for onboarding, but personal data should remain private and gitignored.
+
+  Files edited:
+  - .gitignore
+
+  How to verify:
+  1. Check `.gitignore` contains entries for `src/store/users.csv`, `src/store/positions.csv`, and `src/store/trades.csv`.
+  2. Run `git status` locally and confirm those runtime CSV files are not listed as untracked/changed (if they exist and are not already committed).
+

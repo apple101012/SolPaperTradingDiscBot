@@ -1,6 +1,10 @@
 # Environment and local data
 .env
 src/store/data.csv
+# Runtime CSVs (personal data) — keep templates committed but ignore actual runtime files
+src/store/users.csv
+src/store/positions.csv
+src/store/trades.csv
 
 # Node & build files
 node_modules/
