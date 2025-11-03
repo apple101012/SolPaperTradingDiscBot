@@ -1,0 +1,5 @@
+discord_user_id,sol_balance,realized_pnl,active_mint,buy_presets,sell_presets,slippage_bp,fee_bp
+# Example structure — the first line is the header only.
+# No real data should go here.
+# buy_presets and sell_presets stored as JSON arrays, e.g. [0.05,0.1,0.2,0.5]
+# slippage_bp and fee_bp are integers (basis points)

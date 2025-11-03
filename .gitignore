@@ -1,10 +1,9 @@
-# Environment files
+# Environment and local data
 .env
+src/store/data.csv
 
-# Node modules & build output
+# Node & build files
 node_modules/
 dist/
-
-# OS / editor clutter
 .DS_Store
 *.log

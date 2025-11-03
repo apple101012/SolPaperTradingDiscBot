@@ -1,0 +1,2 @@
+discord_user_id,sol_balance,realized_pnl,active_mint,buy_presets,sell_presets,slippage_bp,fee_bp
+# Header only. Arrays are semicolon-separated, e.g. buy_presets: 0.05;0.1;0.15;0.2

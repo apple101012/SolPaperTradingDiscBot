@@ -260,3 +260,102 @@ Change log (append-only)
   1. Inspect the repository tree (e.g., `ls -R` or your editor) and confirm the listed files exist.
   2. Open a few files (e.g., `src/index.ts`, `src/commands/start.ts`, `src/store/schema.sql`) to verify placeholders are present.
 
+* **2025-11-02 (assistant) — Fix ts-node ESM import resolution for `src/config/env`**
+  What changed:
+  - Updated `tsconfig.json` to use `module: "NodeNext"` and `moduleResolution: "NodeNext"`, set `noEmit: true`, and enabled `allowImportingTsExtensions` to allow importing `.ts` files under the ESM runtime used by `ts-node`.
+  - Modified `src/bot/registry.ts` to import the config with an explicit `.ts` extension to match the loader behavior.
+
+  Why:
+  - When running `ts-node --esm`, Node's ESM loader expects `.js` extensions and the runtime mapping between `.js` imports and `.ts` sources requires `NodeNext` resolution or explicit `.ts` imports. These changes ensure the registry script can load `src/config/env.ts` correctly during development without precompiling.
+
+  How to verify:
+  1. Ensure `.env` contains `DISCORD_BOT_TOKEN` and `DISCORD_CLIENT_ID` (or run with environment variables set).
+  2. Run `npm run deploy-commands` and confirm the script reaches the `Deploying global slash commands...` step (it will error if tokens are missing).
+
+* **2025-11-02 (assistant)** — Align `.env.example` with runtime config keys.
+  What changed:
+  - Replaced previous example variables with the actual variable names expected by the codebase:
+    - `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `NODE_ENV`, `MARKET_PRIMARY`, `CACHE_TTL_SECONDS`, `DEFAULT_SOL_BALANCE`, and `BIRDEYE_API_KEY`.
+
+  Why:
+  - The runtime `src/config/env.ts` expects `DISCORD_BOT_TOKEN` and `DISCORD_CLIENT_ID` (and other keys). Updating the example prevents confusion when copying `.env.example` to `.env` during setup.
+
+  How to verify:
+  1. Open `./.env.example` and confirm it lists `DISCORD_BOT_TOKEN` and `DISCORD_CLIENT_ID`.
+  2. Copy to `.env` and fill credentials, then run `npm run deploy-commands` to check for missing token warnings.
+
+
+* **2025-11-02 (assistant) — MVP implementation using local CSV storage (DM-only bot)**
+  What changed:
+  - Implemented a fully working MVP of the DM-only Discord paper-trading bot.
+  - Switched persistence plan from SQLite (in earlier snapshot) to **local CSV files** with a committed template + personal data files (gitignored).
+  - Added live market data via **DexScreener** with a small in-memory TTL cache.
+  - Implemented `/start`, `/balance`, `/positions`, `/history`, `/pnl`, `/reset`.
+  - Implemented a trading panel embed with **Buy** (4 presets) and **Sell** (25/50/75/100%) buttons.
+  - Implemented modals to set **buy/sell presets** and **slippage/fee**.
+  - DM paste of a Solana **mint** switches the active token and refreshes the panel.
+  - **MVP simplification**: treats SOL as USD (1:1) internally to avoid needing a SOL/USD oracle right now.
+
+  Why:
+  - Keep everything local, simple, and fast for personal use.
+  - CSV keeps your data easy to view/edit and private (since personal files are gitignored).
+
+  Files added/edited (high level):
+  - `.gitignore` — ignore `.env` and `src/store/*.csv` personal data files.
+  - `.env.example` — tokens + config placeholders.
+  - `package.json`, `tsconfig.json`, `README.md`
+  - **Bot core**: `src/config/env.ts`, `src/bot/{client.ts,intents.ts,registry.ts}`, `src/index.ts`
+  - **CSV store**: `src/store/{users_template.csv,positions_template.csv,trades_template.csv,db.ts}`
+  - **Market**: `src/services/market/{index.ts,cache.ts}`
+  - **Trading**: `src/services/trading/{engine.ts,math.ts}`
+  - **Renderers**: `src/renderers/panel.ts`
+  - **Commands**: `src/commands/{balance.ts,positions.ts,history.ts,pnl.ts,reset.ts}`
+  - **Interactions (buttons/modals)**: `src/interactions/buttons/{buy.ts,sell.ts,open-buypresets-modal.ts,open-sellpresets-modal.ts,open-slippage-modal.ts,help.ts}`, `src/interactions/modals/{buypresets.ts,sellpresets.ts,slippage.ts}`
+  - **Utils/Types**: `src/utils/{numbers.ts,validate.ts}`, `src/types/market.ts`
+
+  Data storage (CSV):
+  - Committed templates: `src/store/users_template.csv`, `src/store/positions_template.csv`, `src/store/trades_template.csv`
+  - Personal runtime data (gitignored): `src/store/users.csv`, `src/store/positions.csv`, `src/store/trades.csv`
+  - Arrays stored as **semicolon-separated** lists.
+
+  How to verify:
+  1) `cp .env.example .env` and fill in `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`.
+  2) `npm i`
+  3) `npm run deploy-commands`
+  4) `npm run dev`
+  5) In DMs with the bot: `/start`, paste a Solana **mint**, then click **Buy**/**Sell** buttons.
+  6) Check `/balance`, `/positions`, `/history`, `/pnl`.
+  7) Confirm `src/store/*.csv` were created and updated locally.
+
+  Notes / Next:
+  - Replace the SOL=USD simplification with a real SOL/USD price feed later.
+  - Optional: add slash-command variants for presets and slippage updates.
+
+* **2025-11-02 (assistant) — Show marketcap on buys/sells and record MC in trades/positions**
+  What changed:
+  - Added marketcap tracking and display across the trading flow.
+  - `src/store/db.ts`: extended `PositionRow` with `avg_entry_marketcap` and `TradeRow` with `marketcap_usd`; updated CSV headers/read-write to include these fields.
+  - `src/services/trading/engine.ts`: when buying we record the current snapshot.marketCapUsd and update the position's `avg_entry_marketcap` (VWAP-style). When selling we record the sell marketcap and return `percentChange` and both USD/SOL realized PnL values.
+  - `src/interactions/buttons/buy.ts`: buy confirmation now shows the token market cap (formatted, e.g. "$20.6k").
+  - `src/interactions/buttons/sell.ts`: sell confirmation now shows sold marketcap, percent change (vs avg-entry MC) and realized PnL in both SOL and USD.
+  - `src/renderers/panel.ts`: panel now shows `Avg MC` for the current position when available.
+
+  Why:
+  - You asked the panel and trade feedback to show marketcap ("worth @") and to report the sold marketcap and PnL as percent plus realized amounts in SOL and USD.
+
+  Files added/edited:
+  - src/store/db.ts
+  - src/services/trading/engine.ts
+  - src/interactions/buttons/buy.ts
+  - src/interactions/buttons/sell.ts
+  - src/renderers/panel.ts
+
+  How to verify:
+  1) Run the bot locally (`npm run dev`) with a valid `.env`.
+  2) In DM panel, click a Buy preset — observe reply includes "Worth @ MC: $..." and panel updates.
+  3) Sell part/all of a position — observe reply includes "Sold MC: $... • PnL: X.XX% • Realized: Y SOL / $Z".
+
+  Notes / Next:
+  - Currently the project uses the MVP simplification (1 SOL = $1). The USD/SOL conversion can be wired in later by fetching SOL/USD.
+  - The CSV templates will continue to work; newly written CSVs will include the added columns. Existing CSVs without the new headers will be read safely (defaults applied).
+

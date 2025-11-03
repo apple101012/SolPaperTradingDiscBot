@@ -1,10 +1,22 @@
 {
   "name": "sola-dm-papertrader-bot",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Discord DM-only bot for paper trading Solana tokens",
   "type": "module",
+  "main": "dist/index.js",
   "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec ts-node --esm src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "deploy-commands": "ts-node --esm src/bot/registry.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.2",
+    "dotenv": "^16.4.1"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "nodemon": "^3.0.3"
   }
 }

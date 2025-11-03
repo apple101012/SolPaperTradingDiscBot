@@ -1,0 +1,92 @@
+Project: sola-dm-papertrader-bot
+Purpose: A DM-only Discord bot for paper-trading Solana tokens. Users paste a token mint, see live price/market cap, and use one-tap buttons to buy/sell with configurable presets. All balances/positions/trades are stored locally in CSV files for personal use.
+
+Stack
+- Node.js + TypeScript + discord.js (ESM)
+- Local CSV persistence (no external DB)
+- Market data: DexScreener API + in-memory TTL cache
+
+Runtime / Config
+- Environment variables (from .env):
+  - DISCORD_BOT_TOKEN
+  - DISCORD_CLIENT_ID
+  - NODE_ENV (default: development)
+  - MARKET_PRIMARY=DEXSCREENER
+  - CACHE_TTL_SECONDS=5
+  - DEFAULT_SOL_BALANCE=10
+- No local web server / no port binding (DM-only bot connects outbound to Discord)
+
+Commands (DM-only)
+- /start       → initializes user and instructs to paste a mint; shows panel if already set
+- /balance     → shows SOL balance + realized PnL
+- /positions   → lists open positions (qty, avg entry)
+- /history     → recent trades (latest 10)
+- /pnl         → realized PnL summary
+- /reset       → resets this user’s paper account (SOL restored to default; positions cleared)
+
+Interactions
+- Panel Buttons:
+  - BUY::<mint>::<solAmount>      → Buy with one of 4 preset SOL amounts
+  - SELL::<mint>::<percent>       → Sell 25% / 50% / 75% / 100%
+  - OPEN_BUY_PRESETS              → Modal to set 4 buy presets (SOL)
+  - OPEN_SELL_PRESETS             → Modal to set 4 sell presets (%)
+  - OPEN_SLIPPAGE                 → Modal to set slippage_bp and fee_bp
+  - HELP                          → Usage tips (ephemeral)
+- Modals:
+  - MODAL_BUY_PRESETS → fields BUY_1..BUY_4 (floats > 0)
+  - MODAL_SELL_PRESETS → fields SELL_1..SELL_4 (ints 1..100)
+  - MODAL_SLIPPAGE → fields SLIPPAGE_BP, FEE_BP (ints 0..5000)
+
+Panel (Renderer)
+- Shows: token (name/symbol/mint), price, MC/FDV/Liq if present, data source/time
+- Shows: user SOL balance, realized PnL
+- Shows: active token position (qty, avg entry)
+- Buttons: Buy x4, Sell 25/50/75/100, and Config row
+
+Trading (Paper)
+- Initial SOL balance: DEFAULT_SOL_BALANCE (default: 10)
+- BUY: reduce SOL; increase token position using VWAP; log trade
+- SELL: reduce token qty by %; add SOL; realize PnL; log trade
+- Fees and slippage (basis points) applied to the execution price
+- MVP simplification: treats SOL as USD internally (1:1) for sizing; replace with real SOL/USD later
+
+Persistence (CSV; local only)
+- Templates (committed):
+  - src/store/users_template.csv
+  - src/store/positions_template.csv
+  - src/store/trades_template.csv
+- Personal runtime data (gitignored):
+  - src/store/users.csv
+  - src/store/positions.csv
+  - src/store/trades.csv
+- Schemas (columns):
+  - users: discord_user_id, sol_balance, realized_pnl, active_mint, buy_presets, sell_presets, slippage_bp, fee_bp
+  - positions: discord_user_id, mint, token_qty, avg_entry, last_mark_ts
+  - trades: id, discord_user_id, mint, side, quote_price, effective_price, qty_tokens, amount_sol, realized_pnl, ts
+- Conventions:
+  - buy_presets / sell_presets stored as semicolon-separated values
+  - CSV file is created from *_template.csv on first run
+
+Directory (summary)
+- src/index.ts                          → event wiring (commands, buttons, modals, DM mint paste)
+- src/bot/{client,intents,registry}.ts   → Discord client setup & slash command deploy
+- src/config/env.ts                      → env loader & config
+- src/services/market/{index,cache}.ts   → DexScreener fetch + TTL cache
+- src/services/trading/{engine,math}.ts  → buy/sell execution, VWAP, PnL
+- src/renderers/panel.ts                 → main embed + components
+- src/commands/{balance,positions,history,pnl,reset}.ts
+- src/interactions/buttons/{buy,sell,open-buypresets-modal,open-sellpresets-modal,open-slippage-modal,help}.ts
+- src/interactions/modals/{buypresets,sellpresets,slippage}.ts
+- src/store/{db.ts, *_template.csv}      → CSV helpers & schema templates
+- src/utils/{numbers,validate}.ts        → rounding & mint validation
+- src/types/market.ts                    → TokenSnapshot type
+
+Known limitations (current)
+- Uses DexScreener only; no SOL/USD conversion (SOL treated as USD internally)
+- No multi-token portfolio view in the panel (positions command shows all)
+- No persistence of the specific panel message ID (we re-render on demand)
+
+Next intended work
+- Add SOL/USD feed and convert USD↔SOL properly
+- Optional slash commands for preset/slippage updates
+- Optional: store panel message id and edit in place
